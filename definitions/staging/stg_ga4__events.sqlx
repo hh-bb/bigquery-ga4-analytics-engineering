@@ -1,0 +1,76 @@
+config {
+  type: "table",
+  schema: "stg_ga4",
+  description: "Cleaned and deduplicated GA4 events with unnested session and page parameters.",
+  bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ["event_name", "user_pseudo_id"]
+  },
+  assertions: {
+    nonNull: ["event_id", "event_date", "event_timestamp", "user_pseudo_id"],
+    uniqueKey: ["event_id"]
+  }
+}
+
+WITH source_events AS (
+  SELECT
+    PARSE_DATE('%Y%m%d', event_date) AS event_date,
+    TIMESTAMP_MICROS(event_timestamp) AS event_timestamp,
+    event_timestamp AS event_timestamp_micros,
+    event_name,
+    user_pseudo_id,
+    (SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'ga_session_id') AS ga_session_id,
+    (SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'ga_session_number') AS ga_session_number,
+    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_location') AS page_location,
+    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_title') AS page_title,
+    device.category AS device_category,
+    device.operating_system AS device_os,
+    geo.country AS country,
+    traffic_source.source AS traffic_source,
+    traffic_source.medium AS traffic_medium,
+    traffic_source.name AS campaign_name,
+    ecommerce.transaction_id AS transaction_id,
+    ecommerce.purchase_revenue_in_usd AS purchase_revenue_usd,
+    items
+  FROM ${ref("events_*")}
+  WHERE _TABLE_SUFFIX BETWEEN '20210101' AND '20210131'
+),
+
+deduplicated_events AS (
+  SELECT
+    TO_HEX(MD5(CONCAT(
+      CAST(user_pseudo_id AS STRING), '-',
+      CAST(event_timestamp_micros AS STRING), '-',
+      event_name, '-',
+      COALESCE(CAST(ga_session_id AS STRING), 'no_session'), '-',
+      COALESCE(page_location, 'no_page')
+    ))) AS event_id,
+    *
+  FROM source_events
+  QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY user_pseudo_id, event_timestamp_micros, event_name, ga_session_id, page_location
+    ORDER BY event_timestamp_micros
+  ) = 1
+)
+
+SELECT
+  event_id,
+  event_date,
+  event_timestamp,
+  event_name,
+  user_pseudo_id,
+  ga_session_id,
+  ga_session_number,
+  CONCAT(user_pseudo_id, '-', CAST(ga_session_id AS STRING)) AS session_id,
+  page_location,
+  page_title,
+  device_category,
+  device_os,
+  country,
+  traffic_source,
+  traffic_medium,
+  campaign_name,
+  transaction_id,
+  purchase_revenue_usd,
+  items
+FROM deduplicated_events
