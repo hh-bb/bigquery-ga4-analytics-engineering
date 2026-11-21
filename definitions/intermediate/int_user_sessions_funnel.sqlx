@@ -1,0 +1,88 @@
+config {
+  type: "table",
+  schema: "int_ga4",
+  description: "Session-level e-commerce funnel and revenue model built on deduplicated GA4 events.",
+  bigquery: {
+    partitionBy: "session_date",
+    clusterBy: ["traffic_source", "traffic_medium", "country"]
+  },
+  assertions: {
+    nonNull: ["session_id", "session_date", "user_pseudo_id"],
+    uniqueKey: ["session_id"]
+  }
+}
+
+WITH valid_sessions AS (
+  SELECT
+    session_id,
+    user_pseudo_id,
+    ga_session_id,
+    event_date,
+    event_timestamp,
+    event_name,
+    device_category,
+    device_os,
+    country,
+    traffic_source,
+    traffic_medium,
+    campaign_name,
+    transaction_id,
+    purchase_revenue_usd
+  FROM ${ref("stg_ga4__events")}
+  WHERE session_id IS NOT NULL
+    AND ga_session_id IS NOT NULL
+),
+
+session_first_touch AS (
+  SELECT
+    session_id,
+    MIN(event_date) AS session_date,
+    MIN(event_timestamp) AS session_start_ts,
+    MAX(event_timestamp) AS session_end_ts,
+    ANY_VALUE(user_pseudo_id) AS user_pseudo_id,
+    ANY_VALUE(ga_session_id) AS ga_session_id,
+
+    -- Tomamos el primer valor no nulo cronológico de la sesión para evitar inconsistencias
+    ARRAY_AGG(country IGNORE NULLS ORDER BY event_timestamp ASC)[SAFE_OFFSET(0)] AS country,
+    ARRAY_AGG(device_category IGNORE NULLS ORDER BY event_timestamp ASC)[SAFE_OFFSET(0)] AS device_category,
+    ARRAY_AGG(device_os IGNORE NULLS ORDER BY event_timestamp ASC)[SAFE_OFFSET(0)] AS device_os,
+    ARRAY_AGG(NULLIF(traffic_source, '(data deleted)') IGNORE NULLS ORDER BY event_timestamp ASC)[SAFE_OFFSET(0)] AS traffic_source,
+    ARRAY_AGG(NULLIF(traffic_medium, '(data deleted)') IGNORE NULLS ORDER BY event_timestamp ASC)[SAFE_OFFSET(0)] AS traffic_medium,
+    ARRAY_AGG(NULLIF(campaign_name, '(data deleted)') IGNORE NULLS ORDER BY event_timestamp ASC)[SAFE_OFFSET(0)] AS campaign_name,
+
+    -- Indicadores del embudo a nivel sesión
+    MAX(CASE WHEN event_name = 'view_item' THEN 1 ELSE 0 END) AS has_view_item,
+    MAX(CASE WHEN event_name = 'add_to_cart' THEN 1 ELSE 0 END) AS has_add_to_cart,
+    MAX(CASE WHEN event_name = 'begin_checkout' THEN 1 ELSE 0 END) AS has_begin_checkout,
+    MAX(CASE WHEN event_name = 'purchase' THEN 1 ELSE 0 END) AS has_purchase,
+
+    -- Métricas de actividad y monetización
+    COUNT(*) AS total_events,
+    COUNT(DISTINCT transaction_id) AS transactions_count,
+    ROUND(COALESCE(SUM(CASE WHEN event_name = 'purchase' THEN purchase_revenue_usd ELSE 0 END), 0), 2) AS gross_revenue_usd
+  FROM valid_sessions
+  GROUP BY session_id
+)
+
+SELECT
+  session_id,
+  session_date,
+  session_start_ts,
+  session_end_ts,
+  TIMESTAMP_DIFF(session_end_ts, session_start_ts, SECOND) AS session_duration_seconds,
+  user_pseudo_id,
+  ga_session_id,
+  COALESCE(country, 'Unknown') AS country,
+  COALESCE(device_category, 'Unknown') AS device_category,
+  COALESCE(device_os, 'Unknown') AS device_os,
+  COALESCE(traffic_source, '(direct)') AS traffic_source,
+  COALESCE(traffic_medium, '(none)') AS traffic_medium,
+  COALESCE(campaign_name, '(not set)') AS campaign_name,
+  has_view_item,
+  has_add_to_cart,
+  has_begin_checkout,
+  has_purchase,
+  total_events,
+  transactions_count,
+  gross_revenue_usd
+FROM session_first_touch
