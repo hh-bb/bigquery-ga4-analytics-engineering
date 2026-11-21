@@ -35,6 +35,9 @@ The pipeline follows a layered dimensional/mart design in BigQuery:
 
 ### Project Structure
     ├── README.md
+    ├── docs/
+    │   ├── dataform_lineage.png
+    │   └── channel_performance_query.png
     └── definitions/
         ├── sources/
         │   └── ga4_events.sqlx
@@ -46,11 +49,14 @@ The pipeline follows a layered dimensional/mart design in BigQuery:
             └── mart_daily_channel_performance.sqlx
 
 ### Visualizations & Query Insights
-- 🔗 **[Dataform Lineage & Execution (docs/dataform_lineage.png)](docs/dataform_lineage.png):** End-to-end dependency graph from `events_*` through `stg_ga4__events` and `int_user_sessions_funnel` to `mart_daily_channel_performance` with passing assertions.
+
+**Dataform Lineage & Execution**
+End-to-end dependency graph from `events_*` through `stg_ga4__events` and `int_user_sessions_funnel` to `mart_daily_channel_performance` with passing assertions:
 
 ![Dataform Lineage](docs/dataform_lineage.png)
 
-- 🔗 **[Channel Performance Query Results (docs/channel_performance_query.png)](docs/channel_performance_query.png):** Sample BigQuery output from `mart_daily_channel_performance` showing `(direct) / (none)` and `google / organic` leading gross revenue, while `referral` traffic (`shop.googlemerchandisestore...`) achieves strong session conversion (`1.45%`).
+**Channel Performance Query Results**
+Sample BigQuery output from `mart_daily_channel_performance` showing `(direct) / (none)` and `google / organic` leading gross revenue, while `referral` traffic (`shop.googlemerchandisestore...`) achieves strong session conversion (`1.45%`):
 
 ![Channel Performance Query](docs/channel_performance_query.png)
 
@@ -81,6 +87,9 @@ El pipeline implementa un modelado progresivo en capas dentro de BigQuery:
 
 ### Estructura del Proyecto
     ├── README.md
+    ├── docs/
+    │   ├── dataform_lineage.png
+    │   └── channel_performance_query.png
     └── definitions/
         ├── sources/
         │   └── ga4_events.sqlx
@@ -92,9 +101,16 @@ El pipeline implementa un modelado progresivo en capas dentro de BigQuery:
             └── mart_daily_channel_performance.sqlx
 
 ### Visualizaciones y Resultados de Consulta
-- 🔗 **[Linaje y Ejecución en Dataform (docs/dataform_lineage.png)](docs/dataform_lineage.png):** Grafo de dependencias de punta a punta desde `events_*` hacia `stg_ga4__events`, `int_user_sessions_funnel` y `mart_daily_channel_performance` con pruebas en verde.
+
+**Linaje y Ejecución en Dataform**
+Grafo de dependencias de punta a punta desde `events_*` hacia `stg_ga4__events`, `int_user_sessions_funnel` y `mart_daily_channel_performance` con pruebas en verde:
 
 ![Linaje en Dataform](docs/dataform_lineage.png)
+
+**Resultados de Performance por Canal**
+Consulta de ejemplo sobre `mart_daily_channel_performance` donde `(direct) / (none)` y `google / organic` lideran los ingresos brutos, mientras que el tráfico de referido (`shop.googlemerchandisestore...`) destaca en conversión por sesión (`1.45%`):
+
+![Resultados por Canal](docs/channel_performance_query.png)
 
 - 🔗 **[Resultados de Performance por Canal (docs/channel_performance_query.png)](docs/channel_performance_query.png):** Consulta de ejemplo sobre `mart_daily_channel_performance` donde `(direct) / (none)` y `google / organic` lideran los ingresos brutos, mientras que el tráfico de referido (`shop.googlemerchandisestore...`) destaca en conversión por sesión (`1.45%`).
 
