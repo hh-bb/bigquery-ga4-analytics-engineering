@@ -111,7 +111,3 @@ Grafo de dependencias de punta a punta desde `events_*` hacia `stg_ga4__events`,
 Consulta de ejemplo sobre `mart_daily_channel_performance` donde `(direct) / (none)` y `google / organic` lideran los ingresos brutos, mientras que el tráfico de referido (`shop.googlemerchandisestore...`) destaca en conversión por sesión (`1.45%`):
 
 ![Resultados por Canal](docs/channel_performance_query.png)
-
-- 🔗 **[Resultados de Performance por Canal (docs/channel_performance_query.png)](docs/channel_performance_query.png):** Consulta de ejemplo sobre `mart_daily_channel_performance` donde `(direct) / (none)` y `google / organic` lideran los ingresos brutos, mientras que el tráfico de referido (`shop.googlemerchandisestore...`) destaca en conversión por sesión (`1.45%`).
-
-![Resultados por Canal](docs/channel_performance_query.png)
