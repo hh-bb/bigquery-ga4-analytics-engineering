@@ -1,0 +1,64 @@
+config {
+  type: "table",
+  schema: "mart_ga4",
+  description: "Daily channel, device, and country performance mart with funnel conversion rates and revenue KPIs.",
+  bigquery: {
+    partitionBy: "report_date",
+    clusterBy: ["traffic_source", "traffic_medium", "device_category"]
+  },
+  assertions: {
+    nonNull: ["report_date", "traffic_source", "traffic_medium", "total_sessions"],
+    uniqueKey: ["report_date", "traffic_source", "traffic_medium", "device_category", "country"]
+  }
+}
+
+WITH session_metrics AS (
+  SELECT
+    session_date AS report_date,
+    traffic_source,
+    traffic_medium,
+    device_category,
+    country,
+    COUNT(DISTINCT session_id) AS total_sessions,
+    COUNT(DISTINCT user_pseudo_id) AS unique_users,
+    SUM(total_events) AS total_events,
+    SUM(has_view_item) AS sessions_with_view_item,
+    SUM(has_add_to_cart) AS sessions_with_add_to_cart,
+    SUM(has_begin_checkout) AS sessions_with_begin_checkout,
+    SUM(has_purchase) AS sessions_with_purchase,
+    SUM(transactions_count) AS total_transactions,
+    ROUND(SUM(gross_revenue_usd), 2) AS gross_revenue_usd
+  FROM ${ref("int_user_sessions_funnel")}
+  GROUP BY
+    session_date,
+    traffic_source,
+    traffic_medium,
+    device_category,
+    country
+)
+
+SELECT
+  report_date,
+  traffic_source,
+  traffic_medium,
+  device_category,
+  country,
+  total_sessions,
+  unique_users,
+  total_events,
+  sessions_with_view_item,
+  sessions_with_add_to_cart,
+  sessions_with_begin_checkout,
+  sessions_with_purchase,
+  total_transactions,
+  gross_revenue_usd,
+
+  -- Tasas de conversión del embudo (en porcentaje, redondeadas a 2 decimales)
+  ROUND(SAFE_DIVIDE(sessions_with_add_to_cart * 100.0, NULLIF(sessions_with_view_item, 0)), 2) AS view_to_cart_rate_pct,
+  ROUND(SAFE_DIVIDE(sessions_with_purchase * 100.0, NULLIF(sessions_with_add_to_cart, 0)), 2) AS cart_to_purchase_rate_pct,
+  ROUND(SAFE_DIVIDE(sessions_with_purchase * 100.0, NULLIF(total_sessions, 0)), 2) AS session_conversion_rate_pct,
+
+  -- Métricas unitarias de valor
+  ROUND(SAFE_DIVIDE(gross_revenue_usd, NULLIF(total_sessions, 0)), 2) AS revenue_per_session_usd,
+  ROUND(SAFE_DIVIDE(gross_revenue_usd, NULLIF(total_transactions, 0)), 2) AS avg_order_value_usd
+FROM session_metrics
